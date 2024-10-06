@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scan QR Code</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <style>
+        /* Add any custom styles here */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        #error-message {
+            color: red;
+            margin-top: 10px;
+        }
+        #camera-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        #reader {
+            width: 100%;
+            max-width: 600px;
+            height: 400px;
+            border: 2px solid #007bff;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        #scanButton, #scanNewButton {
+            margin-top: 10px;
+            padding: 10px 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #scanButton:hover, #scanNewButton:hover {
+            background-color: #0056b3;
+        }
+        #userInfo {
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+<div>
+    <h1>Scan QR Code</h1>
+    <div id="userInfo">
+        <span id="userEmail">Email: <%= user.email %></span><br>
+        <span id="currentPoints">Current Points: <%= user.points %></span>
+        <form action="/logout" method="POST">
+            <button type="submit">Logout</button>
+        </form>
+    </div>
+
+    <input type="text" id="qrCodeId" placeholder="Enter QR Code ID" maxlength="9">
+    <button id="scanButton">Scan</button>
+    <div id="error-message"></div>
+
+    <div id="camera-container">
+        <div id="reader"></div>
+    </div>
+
+    <button id="scanNewButton" style="display: none;">Scan New QR Code</button>
+</div>
+
+<script>
+  const errorMessageElement = document.getElementById('error-message');
+  const cameraContainer = document.getElementById('camera-container');
+  const scanNewButton = document.getElementById('scanNewButton');
+  const scannedCodes = new Set(); // Track scanned QR codes
+  let isScanningEnabled = true; // Flag to control scanning
+
+  // Update the current points display
+  function updatePointsDisplay(points) {
+    document.getElementById('currentPoints').innerText = points;
+  }
+
+  // Function to handle posting scanned QR code to the server
+  async function postScannedCode(qrCodeId) {
+    console.log('Posting QR Code ID:', qrCodeId);
+    try {
+      const response = await fetch('/scan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ qrCodeId }) // Correctly stringify the body
+      });
+
+      if (!response.ok) {
+        const errorMessage = await response.text();
+        errorMessageElement.innerText = `Server Error: ${errorMessage}`;
+        return;
+      }
+
+      const result = await response.json();
+      errorMessageElement.innerText = `Success: ${result.message}. Points Earned: ${result.pointsEarned}`;
+
+      // Update points display
+      updatePointsDisplay(result.currentPoints);
+
+    } catch (error) {
+      errorMessageElement.innerText = `Fetch Error: ${error}`;
+    }
+  }
+
+  function debounce(func, delay) {
+    let timeoutId;
+    return function(...args) {
+      if (timeoutId) {
+        clearTimeout(timeoutId); // Clear the previous timeout
+      }
+      timeoutId = setTimeout(() => {
+        func.apply(this, args); // Call the original function with the provided arguments
+      }, delay);
+    };
+  }
+
+
+  // Function called when a QR code is successfully scanned
+  function onScanSuccess(qrCodeMessage) {
+    // Check if the code has already been scanned
+    if (scannedCodes.has(qrCodeMessage) || !isScanningEnabled) {
+      errorMessageElement.innerText = 'This QR code has already been scanned or scanning is disabled.';
+      return; // Exit if it has already been processed or if scanning is disabled
+    }
+
+    // Add the code to the set of scanned codes
+    scannedCodes.add(qrCodeMessage);
+    isScanningEnabled = false; // Disable scanning temporarily
+
+    document.getElementById('qrCodeId').value = qrCodeMessage; // Set the scanned QR code value
+    errorMessageElement.innerText = ''; // Clear any previous error messages
+    console.log(`Scanned QR Code: ${qrCodeMessage}`); // Log the scanned QR code
+    postScannedCode(qrCodeMessage); // Post the scanned QR code to the server
+    cameraContainer.style.display = 'none'; // Hide camera container
+    scanNewButton.style.display = 'block'; // Show scan new button
+  }
+
+  // Initialize the QR code scanner
+  let html5QrCode = new Html5Qrcode("reader");
+
+  const debouncedOnScanSuccess = debounce(onScanSuccess, 1000); // 1000 ms debounce delay
+  // Start scanning using the environment-facing camera
+  html5QrCode.start(
+    { facingMode: "environment" }, // Use back camera
+    {
+      fps: 10,  // Frames per second
+      qrbox: { width: 250, height: 250 } // Size of the box for scanning
+    },
+    debouncedOnScanSuccess,  // Success callback
+  ).catch(err => {
+    console.error("Failed to start the QR scanner:", err);
+    errorMessageElement.innerText = 'Unable to access the camera: ' + err; // Display error
+  });
+
+  // Handle manual button click to post the QR code ID
+  document.getElementById('scanButton').onclick = function() {
+    const qrCodeId = document.getElementById('qrCodeId').value.trim();
+    if (qrCodeId) {
+      postScannedCode(qrCodeId); // Post the QR code value to the server
+    } else {
+      errorMessageElement.innerText = "Please enter a QR Code ID.";
+    }
+  };
+
+  // Handle new scan button click
+  scanNewButton.onclick = function() {
+    cameraContainer.style.display = 'flex'; // Show camera container
+    scanNewButton.style.display = 'none'; // Hide new scan button
+    document.getElementById('qrCodeId').value = ''; // Clear the input
+    errorMessageElement.innerText = ''; // Clear any previous error messages
+
+    // Restart the QR code scanner
+    html5QrCode.start(
+      { facingMode: "environment" }, // Use back camera
+      {
+        fps: 10,  // Frames per second
+        qrbox: { width: 250, height: 250 } // Size of the box for scanning
+      },
+      onScanSuccess,  // Success callback
+    ).catch(err => {
+      console.error("Failed to start the QR scanner:", err);
+      errorMessageElement.innerText = 'Unable to access the camera: ' + err; // Display error
+    });
+  };
+</script>
+
+
+</body>
+</html>

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QR Code Already Scanned</title>
+<link rel="stylesheet" href="/styles.css"> <!-- Link to your CSS file -->
+  <style>
+    body {
+    font-family: Arial, sans-serif;
+    background-color: #f8d7da;
+    margin: 0;
+    padding: 20px;
+  }
+    h1 {
+    text-align: center;
+    color: #721c24;
+  }
+    .alert-container {
+    max-width: 600px;
+    margin: 0 auto;
+    background: #f8d7da;
+    padding: 20px;
+    border: 1px solid #f5c6cb;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  }
+    p {
+    color: #721c24;
+    text-align: center;
+  }
+    a {
+    display: block;
+    text-align: center;
+    margin-top: 20px;
+    color: #007bff;
+    text-decoration: none;
+    font-weight: bold;
+  }
+    a:hover {
+    text-decoration: underline;
+  }
+  </style>
+</head>
+<body>
+<h1>QR Code Already Scanned</h1>
+<div class="alert-container">
+  <p>The QR Code with ID <strong><%= qrCode.codeId %></strong> has already been scanned by <strong><%= qrCode.scannedBy %></strong> on <strong><%= qrCode.scannedAt.toLocaleString() %></strong>.</p>
+  <p>Points Earned: <strong>10</strong></p>
+  <a href="/scan">Scan Another QR Code</a>
+  <a href="/generate">Generate New QR Code</a>
+</div>
+</body>
+</html>
