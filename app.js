@@ -6,16 +6,16 @@ const path = require("path");
 
 require('dotenv').config();
 
-const index = express();
-index.use(express.json());
-index.set('view engine', 'ejs');
-index.set("views", path.join(__dirname, "views"))
-index.use(session({
+const app = express();
+app.use(express.json());
+app.set('view engine', 'ejs');
+app.set("views", './views');
+app.use(session({
   secret: 'your_secret_key', // Change this to a secure key
   resave: false,
   saveUninitialized: true,
 }));
-index.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: false }));
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODBURL);
@@ -39,14 +39,14 @@ const User = mongoose.model('User', {
 });
 
 // Serve static files (CSS, images, etc.)
-index.use(express.static('public'));
+app.use(express.static(path.join(__dirname, "public")));
 
-index.get('/', (req, res) => {
+app.get('/', (req, res) => {
   res.render('index', { title: 'Hello'});
 });
 
 // Route to render the QR code generator page
-index.get('/generate', (req, res) => {
+app.get('/generate', (req, res) => {
   res.render('generate');  // Renders the form to generate a QR code
 });
 
@@ -61,12 +61,12 @@ function generateQRCodeId(length) {
 }
 
 // Route to render the signup page
-index.get('/signup', (req, res) => {
+app.get('/signup', (req, res) => {
   res.render('signup'); // Create this view
 });
 
 // Route to handle signup
-index.post('/signup', async (req, res) => {
+app.post('/signup', async (req, res) => {
   const { email, password } = req.body;
   const existingUser = await User.findOne({ email });
 
@@ -80,12 +80,12 @@ index.post('/signup', async (req, res) => {
 });
 
 // Route to render the login page
-index.get('/login', (req, res) => {
+app.get('/login', (req, res) => {
   res.render('login'); // Create this view
 });
 
 // Route to handle login
-index.post('/login', async (req, res) => {
+app.post('/login', async (req, res) => {
   const { email, password } = req.body;
   const user = await User.findOne({ email });
 
@@ -111,7 +111,7 @@ const ensureAuthenticated = (req, res, next) => {
 };
 
 // Route to handle QR code generation
-index.post('/generate', ensureAuthenticated, async (req, res) => {
+app.post('/generate', ensureAuthenticated, async (req, res) => {
   if (req.session.role !== 'admin') {
     return res.status(403).send('Only admins can generate QR codes');
   }
@@ -137,7 +137,7 @@ index.post('/generate', ensureAuthenticated, async (req, res) => {
   });
 });
 
-index.post('/logout', (req, res) => {
+app.post('/logout', (req, res) => {
   req.session.destroy(err => {
     if (err) {
       return res.redirect('/'); // Redirect on error
@@ -149,7 +149,7 @@ index.post('/logout', (req, res) => {
 
 
 // Route to render the QR scanner page
-index.get('/scan', (req, res) => {
+app.get('/scan', (req, res) => {
   if (!req.session.userId) {
     return res.redirect('/login');
   }
@@ -166,7 +166,7 @@ index.get('/scan', (req, res) => {
 
 // Route to handle scanned QR code
 // Route to handle scanned QR code
-index.post('/scan', async (req, res) => {
+app.post('/scan', async (req, res) => {
   const scannedCodeId = req.body.qrCodeId;
   const userId = req.session.userId; // Get user ID from session
 
@@ -200,7 +200,7 @@ index.post('/scan', async (req, res) => {
 
 
 // Route to view all generated QR codes
-index.get('/view-qr-codes', async (req, res) => {
+app.get('/view-qr-codes', async (req, res) => {
   try {
     // Retrieve all QR codes and populate the scannedBy field with the user's email
     const qrCodes = await QRCodeModel.find().lean(); // Get all QR codes
@@ -225,6 +225,6 @@ index.get('/view-qr-codes', async (req, res) => {
 
 
 // Start the Express server
-index.listen(process.env.PORT || 5000, () => {
-  console.log(`Server running on http://localhost:${process.env.PORT || 5000}`);
+app.listen(process.env.PORT || 3000, () => {
+  console.log(`Server running on http://localhost:${process.env.PORT || 3000}`);
 });
